@@ -1,7 +1,7 @@
-import type { FeatureLike } from "ol/Feature";
-import type Layer from "ol/layer/Layer";
-import type { Projection } from "ol/proj";
-import type WMTSTileGrid from "ol/tilegrid/WMTS";
+import type { FeatureLike } from "ol/Feature.js";
+import type Layer from "ol/layer/Layer.js";
+import type { Projection } from "ol/proj.js";
+import type WMTSTileGrid from "ol/tilegrid/WMTS.js";
 
 export type GeoInformation = {
   epsgCode: string;
@@ -22,9 +22,12 @@ export enum LayerType {
   EMPTY_VECTOR_LAYER = "EMPTY_VECTOR_LAYER",
 }
 
-export interface LayerProps {
-  type: LayerType;
-
+/**
+ * What every layer descriptor carries, whatever its type. Consumers hold
+ * {@link LayerProps}, the union of the concrete shapes below; this is the part
+ * they share.
+ */
+export interface LayerBaseProps {
   name: string;
   visibility: boolean;
   /* 0 to 1, matching OpenLayers */
@@ -51,7 +54,8 @@ export interface LayerProps {
   maxZoom?: number;
 }
 
-export interface WMSLayerProps extends LayerProps {
+export interface WMSLayerProps extends LayerBaseProps {
+  type: LayerType.WMS;
   url: string;
   layers: string;
   version: string;
@@ -60,7 +64,8 @@ export interface WMSLayerProps extends LayerProps {
   viewparams: () => string;
 }
 
-export interface WMTSLayerProps extends LayerProps {
+export interface WMTSLayerProps extends LayerBaseProps {
+  type: LayerType.WMTS;
   url: string;
   layer: string;
   style: string;
@@ -69,28 +74,41 @@ export interface WMTSLayerProps extends LayerProps {
   wrapX: boolean;
 }
 
-export interface WFSLayerProps extends LayerProps {
+export interface WFSLayerProps extends LayerBaseProps {
+  type: LayerType.WFS;
   url: string;
-  typeName: string;
   version: string;
   format: string;
+  /* Feature type to request; sent as the typeName parameter */
   layer: string;
   viewparams: () => string;
 }
 
-export interface RESTLayerProps extends LayerProps {
+export interface RESTLayerProps extends LayerBaseProps {
+  type: LayerType.REST;
   url: string;
   urlRewriter: (url: URL, projection: Projection) => URL;
   bubbleSelectEvents: boolean;
 }
 
-export interface VectorTileLayerProps extends LayerProps {
+export interface VectorTileLayerProps extends LayerBaseProps {
+  type: LayerType.VECTOR_TILE;
   url: string;
   viewParams?: () => string;
   declutter?: boolean;
   tileGrid: WMTSTileGrid;
   matrixLimits: Array<any>;
 }
+
+export interface EmptyVectorLayerProps extends LayerBaseProps {
+  type: LayerType.EMPTY_VECTOR_LAYER;
+}
+
+/**
+ * A layer descriptor. Narrowing on `type` gives you the matching shape, so a
+ * descriptor that claims to be WMTS cannot be built without a WMTS url.
+ */
+export type LayerProps = EmptyVectorLayerProps | WMSLayerProps | WMTSLayerProps | WFSLayerProps | RESTLayerProps | VectorTileLayerProps;
 
 export type LayerStyleType = {
   key: string;
