@@ -38,6 +38,8 @@ export type {
   Datum,
 } from "./layers/types";
 export { CombinedLayers } from "./layers/combinedLayers";
+export { isLayerGroupVisible, layerGroupOpacity, setLayerGroupOpacity, setLayerGroupVisible } from "./layers/layerGroup";
+export type { LayerGroup } from "./layers/layerGroup";
 export { createLayer } from "./layers/createLayer";
 export { toLegendStyleValues, toStylesMap, findStyleKey } from "./layers/layerStyle";
 
@@ -88,6 +90,19 @@ export { scaleDenominatorToResolution } from "./layers/resolution";
 export { createMapFlyTo } from "./map/flyTo";
 export type { FlyController, FlyOptions, FlyTarget } from "./map/flyTo";
 export { zoomToExtent } from "./map/zoomToExtent";
+export { labelPoint, placeLabels, LABEL_SHAPE } from "./map/labelPlacement";
+export {
+  createNatureAreaLayers,
+  NATURE_AREAS_GROUP,
+  directiveAreaLegend,
+  directiveAreaStyle,
+  fetchNatureAreas,
+  wrapLabel,
+  NATURE_AREA_LABEL_FONT,
+  UNDETERMINED,
+} from "./layers/fameNatureAreas";
+export type { NatureAreaLayers, NatureAreaLayersOptions } from "./layers/fameNatureAreas";
+export type { LabelPlacement } from "./map/labelPlacement";
 
 // Handing a detailed background over to an overview as the map zooms out.
 // What fades in, and how it looks, stays with the product.
