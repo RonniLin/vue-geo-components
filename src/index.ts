@@ -93,9 +93,11 @@ export { zoomToExtent } from "./map/zoomToExtent";
 export { labelPoint, placeLabels, LABEL_SHAPE } from "./map/labelPlacement";
 export {
   createNatureAreaLayers,
+  natureAreaViewParams,
   NATURE_AREAS_GROUP,
   directiveAreaLegend,
   directiveAreaStyle,
+  directiveAreaStyleValues,
   fetchNatureAreas,
   wrapLabel,
   NATURE_AREA_LABEL_FONT,

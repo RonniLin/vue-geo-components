@@ -57,14 +57,15 @@ const DECLUTTER_GROUP = "nature-area-labels";
 
 type DirectiveArea = LayerStyleType & { key: string };
 
-const directiveAreas: [DirectiveArea, ...DirectiveArea[]] = [
+/** The same colours wherever these areas are drawn, a product's own legend included. */
+export const directiveAreaStyleValues: [DirectiveArea, ...DirectiveArea[]] = [
   { key: "HR", fillColor: "#f4e798", strokeColor: "#808080" },
   { key: "VR", fillColor: "#bbddea", strokeColor: "#808080" },
   { key: "VR+HR", fillColor: "#cfe2a1", strokeColor: "#808080" },
   { key: UNDETERMINED, fillColor: "#d6b9d2", strokeColor: "#808080" },
 ];
 
-const fills = toStylesMap(directiveAreas);
+const fills = toStylesMap(directiveAreaStyleValues);
 
 /** An unknown code draws nothing rather than being coloured as some other directive. */
 export function directiveAreaStyle(feature: FeatureLike): Style | null {
@@ -75,7 +76,7 @@ export function directiveAreaStyle(feature: FeatureLike): Style | null {
 export function directiveAreaLegend(labels: Record<string, string>): LayerGroup["legend"] {
   return {
     iconType: LegendIconType.CIRCLE,
-    items: directiveAreas.map((area) => ({
+    items: directiveAreaStyleValues.map((area) => ({
       key: area.key,
       color: area.fillColor,
       label: labels[area.key] ?? area.key,
@@ -180,6 +181,21 @@ async function readCapabilities(host: string): Promise<WmtsCapabilitiesJson> {
   return new WMTSCapabilities().read(await response.text()) as WmtsCapabilitiesJson;
 }
 
+/**
+ * More than one site throws rather than being narrowed, because a product asking for three and
+ * being shown one would look like missing data. This runs while a tile URL is built, so OpenLayers
+ * is what catches it: expect a failed tile and a console error rather than a clean stack.
+ */
+export function natureAreaViewParams(dataset: string, areas?: () => string[]): string {
+  const selected = areas?.() ?? [];
+  if (selected.length > 1) {
+    throw new Error(`FAME draws one nature area at a time, not ${selected.length}`);
+  }
+
+  const [areaCode] = selected;
+  return encodeURIComponent(`dataset:${dataset}${areaCode ? `;natura2000AreaCode:${areaCode}` : ""}`);
+}
+
 function matrixSetFor(capabilities: WmtsCapabilitiesJson, epsgCode: string): Record<string, unknown> {
   const matrixSet = capabilities.Contents.TileMatrixSet.find((set) => set.Identifier === epsgCode);
   if (!matrixSet) {
@@ -191,8 +207,13 @@ function matrixSetFor(capabilities: WmtsCapabilitiesJson, epsgCode: string): Rec
 export type NatureAreaLayersOptions = {
   /** Base URL of the FAME platform. */
   host: string;
-  /** FAME schema to read. GeoServer falls back to `none` without it, which fails. */
-  dataset: string;
+  /**
+   * FAME schema to read. GeoServer falls back to `none` without it, which fails.
+   *
+   * A function for a product that lets the user switch dataset; the tiles follow it on their next
+   * request, and {@link NatureAreaLayers.refresh} fetches the names for it again.
+   */
+  dataset: string | (() => string);
   /** Only what the tile grid needs: the projection to ask FAME for, and the extent it covers. */
   geo: Pick<GeoInformation, "epsgCode" | "extent">;
   /** Shown for the layer, already translated. */
@@ -200,6 +221,15 @@ export type NatureAreaLayersOptions = {
   /** Legend label per directive code, already translated. */
   legendLabels: Record<string, string>;
   font?: string;
+  /**
+   * Which sites to draw, none meaning all of them. Read for every tile, so a product is free to
+   * change what it returns.
+   *
+   * A list so that this contract survives FAME learning to draw several at once, which would
+   * otherwise change every product's call. Its layer takes a single code today - the viewparam
+   * validates as one number - so more than one is refused here rather than quietly narrowed.
+   */
+  areas?: () => string[];
 };
 
 export type NatureAreaLayers = LayerGroup & {
@@ -208,6 +238,8 @@ export type NatureAreaLayers = LayerGroup & {
    * are on the map, since an empty vector layer has no source before that.
    */
   ready: (map: Map) => void;
+  /** Reads the names for whatever dataset is current now. Only a product that can switch needs it. */
+  refresh: () => Promise<void>;
 };
 
 /**
@@ -221,10 +253,14 @@ export async function createNatureAreaLayers({
   name,
   legendLabels,
   font = NATURE_AREA_LABEL_FONT,
+  areas,
 }: NatureAreaLayersOptions): Promise<NatureAreaLayers> {
-  const [capabilities, areas] = await Promise.all([readCapabilities(host), fetchNatureAreas(host, dataset)]);
+  const currentDataset = typeof dataset === "function" ? dataset : () => dataset;
+  const [capabilities, initialSites] = await Promise.all([readCapabilities(host), fetchNatureAreas(host, currentDataset())]);
   const matrixLimits = getMatrixLimitsForLayer(capabilities, FAME_LAYER, geo.epsgCode);
-  const viewParams = encodeURIComponent(`dataset:${dataset}`);
+
+  /** The sites the names are drawn from. */
+  let sites = initialSites;
 
   const tiles: VectorTileLayerProps = {
     name,
@@ -233,7 +269,7 @@ export async function createNatureAreaLayers({
       `${wmtsUrl(host)}?service=WMTS&version=1.1.0&request=GetTile` +
       `&tilecol={x}&tilerow={y}&format=application%2Fvnd.mapbox-vector-tile&viewparams={ViewParams}` +
       `&LAYER=${encodeURI(FAME_LAYER)}&tilematrixset=${geo.epsgCode}&tilematrix=${geo.epsgCode}:{z}`,
-    viewParams: () => viewParams,
+    viewParams: () => natureAreaViewParams(currentDataset(), areas),
     tileGrid: createFromCapabilitiesMatrixSet(matrixSetFor(capabilities, geo.epsgCode), geo.extent, matrixLimits),
     matrixLimits,
     visibility: true,
@@ -249,15 +285,27 @@ export async function createNatureAreaLayers({
     styleFunction: labelStyle(font),
   };
 
+  /** Fresh features every time, because placing a name moves the one it sits on. */
+  function fill(): void {
+    const labels = (names.layerRef as VectorLayer | undefined)?.getSource();
+    labels?.clear();
+    labels?.addFeatures(natureAreasToFeatures(sites));
+  }
+
+  async function refresh(): Promise<void> {
+    sites = await fetchNatureAreas(host, currentDataset());
+    fill();
+  }
+
   function ready(map: Map): void {
-    const labels = names.layerRef as VectorLayer | undefined;
     const shapes = tiles.layerRef as VectorTileLayer | undefined;
-    if (!labels || !shapes) {
+    const labels = names.layerRef as VectorLayer | undefined;
+    if (!shapes || !labels) {
       throw new Error("The nature area layers have to be on the map before their names can be placed");
     }
 
     labels.setDeclutter(DECLUTTER_GROUP);
-    labels.getSource()?.addFeatures(natureAreasToFeatures(areas));
+    fill();
 
     // A name stands on the outline it names, which is only known once that outline is drawn.
     map.on("rendercomplete", () => {
@@ -273,5 +321,5 @@ export async function createNatureAreaLayers({
     });
   }
 
-  return { key: NATURE_AREAS_GROUP, name, layers: [tiles, names], legend: directiveAreaLegend(legendLabels), ready };
+  return { key: NATURE_AREAS_GROUP, name, layers: [tiles, names], legend: directiveAreaLegend(legendLabels), ready, refresh };
 }
