@@ -17,8 +17,8 @@ function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   return typeof candidate === "object" && candidate !== null && !Array.isArray(candidate);
 }
 
-function isOptionalString(candidate: unknown): candidate is string | undefined {
-  return candidate === undefined || typeof candidate === "string";
+function isOptionalString(candidate: unknown): candidate is string | null | undefined {
+  return candidate === undefined || candidate === null || typeof candidate === "string";
 }
 
 function parseSuggestion(candidate: unknown, index: number, path: string): SearchSuggestion {
@@ -31,7 +31,15 @@ function parseSuggestion(candidate: unknown, index: number, path: string): Searc
   if (!hasRequiredFields || !isOptionalString(centroid) || !isOptionalString(geometry) || !isOptionalString(bbox)) {
     throw new InvalidSearchResponseError(`Search response ${path} contains an invalid suggestion at index ${index}`);
   }
-  return { id, type, description, score, centroid, geometry, bbox };
+  return {
+    id,
+    type,
+    description,
+    score,
+    centroid: centroid ?? undefined,
+    geometry: geometry ?? undefined,
+    bbox: bbox ?? undefined,
+  };
 }
 
 function parseSearchResponse(candidate: unknown, path: string): SearchResult {

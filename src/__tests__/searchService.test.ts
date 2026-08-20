@@ -113,4 +113,33 @@ describe("createSearchService", () => {
     await expect(service.startSearchQuery("invalid"), "invalid suggestions should not reach the UI").rejects.toThrow(/invalid suggestion at index 0/);
     vi.unstubAllGlobals();
   });
+
+  it.each(["centroid", "geometry", "bbox"] as const)("accepts null for the optional %s field", async (field) => {
+    const suggestion: Record<string, unknown> = {
+      id: "s1",
+      type: "CITY",
+      description: "Amsterdam",
+      score: 8.7,
+      centroid: "POINT(1 2)",
+      geometry: "MULTIPOLYGON(((0 0,1 0,1 1,0 1,0 0)))",
+      bbox: "BOX(0 0,1 1)",
+    };
+    suggestion[field] = null;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ complete: true, uuid: "u1", results: [suggestion] }),
+      }),
+    );
+    const service = createSearchService(config);
+
+    const result = await service.startSearchQuery("amsterdam");
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.id, "the suggestion should round-trip").toBe("s1");
+    expect(result.results[0]?.[field], `a null ${field} should parse as absent`).toBeUndefined();
+    vi.unstubAllGlobals();
+  });
 });
