@@ -1,6 +1,6 @@
 {
   "name": "@aerius/vue-geo-components",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Shared Vue 3 + OpenLayers geo components for AERIUS frontends.",
   "type": "module",
   "license": "AGPL-3.0-only",
