@@ -4,8 +4,10 @@ import type Map from "ol/Map.js";
 import { WKT } from "ol/format.js";
 import type { Geometry } from "ol/geom.js";
 import Point from "ol/geom/Point.js";
+import Circle from "ol/style/Circle.js";
+import Fill from "ol/style/Fill.js";
+import Style from "ol/style/Style.js";
 import { createLayer } from "../layers/createLayer";
-import { natureAreaPointStyle } from "../layers/natureAreas";
 import { LayerType, type LayerProps } from "../layers/types";
 import { mapFlightFor } from "../map/flyTo";
 import { zoomToExtent } from "../map/zoomToExtent";
@@ -18,6 +20,16 @@ const HEXAGON_DIAMETER = 124.08;
 const HEXAGON_VIEWPORT_FRACTION = 1 / 3;
 
 const wkt = new WKT();
+
+const SEARCH_RESULT_MARKER_COLOR = "#193884";
+const SEARCH_RESULT_MARKER_RADIUS = 5;
+
+const searchResultStyle = new Style({
+  image: new Circle({
+    radius: SEARCH_RESULT_MARKER_RADIUS,
+    fill: new Fill({ color: SEARCH_RESULT_MARKER_COLOR }),
+  }),
+});
 
 const resultLayers = new WeakMap<Map, LayerProps>();
 
@@ -103,7 +115,7 @@ function applyExtentResult(map: Map, centroid: Geometry | undefined, extentGeome
     visibility: true,
     opacity: 1,
     zIndex: 3,
-    styleFunction: (feature) => natureAreaPointStyle(feature),
+    styleFunction: () => searchResultStyle,
   };
   const olLayer = createLayer(layer, projection) as VectorLayer;
   const source = olLayer.getSource();
