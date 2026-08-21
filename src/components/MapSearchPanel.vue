@@ -25,25 +25,24 @@ function groupTitle(type: string): string {
   return props.translator.te(key) ? props.translator.t(key) : type;
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 const highlightExpression = computed(() => {
   const terms = query.value.split(/\s+/).filter((term) => term.length > 0);
   if (terms.length === 0) {
     return undefined;
   }
   const alternatives = terms
-    .map((term) => escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .sort((first, second) => second.length - first.length)
     .join("|");
   return new RegExp(`(${alternatives})`, "gi");
 });
 
-function highlight(description: string): string {
-  const escaped = escapeHtml(description);
-  return highlightExpression.value ? escaped.replace(highlightExpression.value, "<b>$1</b>") : escaped;
+function highlightParts(description: string): { text: string; match: boolean }[] {
+  const expression = highlightExpression.value;
+  if (!expression) {
+    return [{ text: description, match: false }];
+  }
+  return description.split(expression).map((text, index) => ({ text, match: index % 2 === 1 }));
 }
 </script>
 
@@ -92,17 +91,19 @@ function highlight(description: string): string {
       <div v-for="[type, suggestions] in groupedResults" :key="type" class="result-group">
         <div class="group-title">{{ groupTitle(type) }}</div>
         <ul class="result-list" :aria-label="groupTitle(type)">
-          <!-- eslint-disable vue/no-v-html -- the description is HTML-escaped in highlight() -->
-          <li v-for="suggestion in suggestions" :key="suggestion.id">
+          <li v-for="(suggestion, resultIndex) in suggestions" :key="suggestion.id">
             <button
               type="button"
               class="result-item"
-              :aria-label="`${groupTitle(type)} result: ${suggestion.description}`"
+              :aria-label="`${groupTitle(type)} result ${resultIndex + 1}: ${suggestion.description}`"
               :data-id="`map-search-result-${suggestion.id}`"
-              @click="emit('select', suggestion)"
-              v-html="highlight(suggestion.description)" />
+              @click="emit('select', suggestion)">
+              <template v-for="(part, index) in highlightParts(suggestion.description)" :key="index">
+                <b v-if="part.match">{{ part.text }}</b>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </button>
           </li>
-          <!-- eslint-enable vue/no-v-html -->
         </ul>
       </div>
     </div>

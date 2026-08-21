@@ -61,7 +61,8 @@ describe("MapSearchPanel", () => {
     await vi.advanceTimersByTimeAsync(500);
 
     const resultButton = wrapper.get('[data-id="map-search-result-r1"]');
-    expect(resultButton.html()).toContain("<b>100</b>");
+    expect(resultButton.get("b").text()).toBe("100");
+    expect(resultButton.attributes("aria-label")).toBe("map.search.type.RECEPTOR result 1: 100000123");
     expect(wrapper.text()).toContain("map.search.type.RECEPTOR");
     expect(wrapper.find('[role="tree"]').exists(), "search results should not claim tree behavior").toBe(false);
     expect(wrapper.get("ul").findAll("li"), "suggestions should use native list semantics").toHaveLength(1);
@@ -109,9 +110,28 @@ describe("MapSearchPanel", () => {
     await wrapper.get('[data-id="map-search-input"]').setValue("b b");
     await vi.advanceTimersByTimeAsync(500);
 
-    const html = wrapper.get('[data-id="map-search-result-r1"]').html();
-    expect((html.match(/<b>/g) ?? []).length).toBe((html.match(/<\/b>/g) ?? []).length);
-    expect(html).toContain("<b>B</b>");
+    const highlightedParts = wrapper.get('[data-id="map-search-result-r1"]').findAll("b");
+    expect(highlightedParts).toHaveLength(1);
+    expect(highlightedParts[0]?.text()).toBe("B");
+    vi.unstubAllGlobals();
+  });
+
+  it("renders search-result descriptions as text", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => result({ results: [{ id: "r1", type: "RECEPTOR", description: "<script>", score: 1 }] }),
+      }),
+    );
+
+    const wrapper = mount(MapSearchPanel, { props: { config, translator } });
+    await wrapper.get('[data-id="map-search-input"]').setValue("script");
+    await vi.advanceTimersByTimeAsync(500);
+
+    const resultButton = wrapper.get('[data-id="map-search-result-r1"]');
+    expect(resultButton.find("script").exists()).toBe(false);
+    expect(resultButton.text()).toBe("<script>");
     vi.unstubAllGlobals();
   });
 });

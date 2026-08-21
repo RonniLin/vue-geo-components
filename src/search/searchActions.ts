@@ -11,12 +11,10 @@ import { createLayer } from "../layers/createLayer";
 import { LayerType, type LayerProps } from "../layers/types";
 import { mapFlightFor } from "../map/flyTo";
 import { zoomToExtent } from "../map/zoomToExtent";
-import { pointFromReceptorId, receptorIdFromPoint } from "../receptors/hexagonGrid";
+import { createHexagonFeature, pointFromReceptorId, receptorIdFromPoint } from "../receptors/hexagonGrid";
 import { createSelectedReceptorLayer, renderSelectedReceptor } from "../receptors/selectedReceptor";
 import type { SearchSuggestion } from "./searchTypes";
 
-/** Level-1 receptor diameter in RD metres. */
-const HEXAGON_DIAMETER = 124.08;
 const HEXAGON_VIEWPORT_FRACTION = 1 / 3;
 
 const wkt = new WKT();
@@ -92,17 +90,25 @@ function applyReceptor(map: Map, centroid: Geometry | undefined) {
   resultLayers.set(map, layer);
   renderSelectedReceptor(layer, receptorId, true, 1);
 
-  const zoom = zoomForHexagon(map);
+  const zoom = zoomForHexagon(map, receptorId);
   mapFlightFor(map).flyTo({ center: [centerX, centerY], zoom });
 }
 
-function zoomForHexagon(map: Map): number {
+function zoomForHexagon(map: Map, receptorId: number): number {
   const view = map.getView();
   const size = map.getSize();
   if (!size || size[0] === undefined || size[0] === 0) {
     return view.getMaxZoom();
   }
-  const resolution = HEXAGON_DIAMETER / (size[0] * HEXAGON_VIEWPORT_FRACTION);
+  const geometry = createHexagonFeature(receptorId).getGeometry();
+  if (!geometry) {
+    return view.getMaxZoom();
+  }
+  const [minimumX, , maximumX] = geometry.getExtent();
+  if (minimumX === undefined || maximumX === undefined) {
+    return view.getMaxZoom();
+  }
+  const resolution = (maximumX - minimumX) / (size[0] * HEXAGON_VIEWPORT_FRACTION);
   const zoom = view.getZoomForResolution(resolution) ?? view.getMaxZoom();
   return Math.min(view.getMaxZoom(), Math.max(view.getMinZoom(), zoom));
 }
