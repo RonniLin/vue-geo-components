@@ -82,7 +82,8 @@ export { scaleDenominatorToResolution } from "./layers/resolution";
 // Smooth camera movement.
 export { createMapFlyTo } from "./map/flyTo";
 export type { FlyController, FlyOptions, FlyTarget } from "./map/flyTo";
-export { zoomToExtent } from "./map/zoomToExtent";
+export { mapViewForExtent, zoomToExtent } from "./map/zoomToExtent";
+export type { ExtentZoomMovement, MapViewTarget } from "./map/zoomToExtent";
 export { labelPoint, placeLabels, LABEL_SHAPE } from "./map/labelPlacement";
 export {
   createNatureAreaLayers,
