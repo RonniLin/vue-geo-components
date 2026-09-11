@@ -32,11 +32,21 @@ const searchResultStyle = new Style({
 const resultLayers = new WeakMap<Map, LayerProps>();
 
 /**
- * Fly to and highlight a search suggestion. Hexagons get the selected-receptor
- * layer (hexagon + crosshair); other results get the extent zoomed to and a
- * point marker at the centroid. Unreadable geometries are ignored.
+ * How {@link applySearchSuggestion} highlights the chosen result. Products
+ * differ on whether they want the selected receptor's lines out to the map
+ * edges, so that is opt-out.
  */
-export function applySearchSuggestion(map: Map, suggestion: SearchSuggestion): void {
+export interface ApplySearchSuggestionOptions {
+  /** Draw the receptor crosshair lines out to the view edges. Defaults to `true`. */
+  crosshair?: boolean;
+}
+
+/**
+ * Fly to and highlight a search suggestion. Hexagons get the selected-receptor
+ * layer highlighted; other results get the extent zoomed to and a point marker
+ * at the centroid. Unreadable geometries are ignored.
+ */
+export function applySearchSuggestion(map: Map, suggestion: SearchSuggestion, options: ApplySearchSuggestionOptions = {}): void {
   const centroid = readGeometry(suggestion.centroid, suggestion.id, "centroid");
   const extentGeometry = readGeometry(suggestion.bbox, suggestion.id, "bounding box") ?? readGeometry(suggestion.geometry, suggestion.id, "geometry");
   if (!centroid && !extentGeometry) {
@@ -46,7 +56,7 @@ export function applySearchSuggestion(map: Map, suggestion: SearchSuggestion): v
   removePreviousResultLayer(map);
 
   if (suggestion.type === "RECEPTOR") {
-    applyReceptor(map, centroid);
+    applyReceptor(map, centroid, options);
     return;
   }
   applyExtentResult(map, centroid, extentGeometry);
@@ -72,7 +82,7 @@ function removePreviousResultLayer(map: Map) {
   resultLayers.delete(map);
 }
 
-function applyReceptor(map: Map, centroid: Geometry | undefined) {
+function applyReceptor(map: Map, centroid: Geometry | undefined, options: ApplySearchSuggestionOptions) {
   const coordinates = centroid instanceof Point ? centroid.getCoordinates() : undefined;
   if (!coordinates) {
     return;
@@ -88,7 +98,7 @@ function applyReceptor(map: Map, centroid: Geometry | undefined) {
   const olLayer = createLayer(layer, map.getView().getProjection());
   map.addLayer(olLayer);
   resultLayers.set(map, layer);
-  renderSelectedReceptor(layer, receptorId, true, 1);
+  renderSelectedReceptor(layer, receptorId, { zoomLevel: 1, crosshair: options.crosshair });
 
   const zoom = zoomForHexagon(map, receptorId);
   mapFlightFor(map).flyTo({ center: [centerX, centerY], zoom });

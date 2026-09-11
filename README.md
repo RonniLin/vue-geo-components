@@ -130,8 +130,8 @@ Everything comes from [`src/index.ts`](./src/index.ts):
   `centerPointOnReceptorAtZoom`** - The AERIUS receptor grid: the RD-anchored hexagon
   lattice and its stable ids.
 - **`createSelectedReceptorLayer` / `renderSelectedReceptor` / `selectedReceptorStyle` /
-  `createReceptorLabelStyle`** - Drawing the receptor a user picked, with crosshairs out
-  to the map edges.
+  `createReceptorLabelStyle`** - Drawing the receptor a user picked. The hexagon is always
+  drawn; the lines out to the map edges can be turned off with the `crosshair` option.
 - **`createPdokBackgroundLayer` / `createPdokAerialLayer` /
   `createPdokProvinceBoundaryLayer` / `PdokBackgroundVariant`** - Descriptors for the
   public Dutch map services. Vector styling stays with you.

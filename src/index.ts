@@ -59,6 +59,7 @@ export {
 } from "./receptors/hexagonGrid";
 export type { HexagonOffsets } from "./receptors/hexagonGrid";
 export { createSelectedReceptorLayer, createReceptorLabelStyle, renderSelectedReceptor, selectedReceptorStyle } from "./receptors/selectedReceptor";
+export type { SelectedReceptorRenderOptions } from "./receptors/selectedReceptor";
 
 // Dutch public map services.
 export {
@@ -110,6 +111,7 @@ export { applyBackgroundFade, backgroundFadeProgress, maxResolution } from "./ma
 export { default as MapSearchPanel } from "./components/MapSearchPanel.vue";
 
 export { applySearchSuggestion } from "./search/searchActions";
+export type { ApplySearchSuggestionOptions } from "./search/searchActions";
 export { createSearchService, type SearchService } from "./search/searchService";
 export { useMapSearch, type MapSearch, type MapSearchOptions } from "./search/useMapSearch";
 export type { SearchCapability, SearchConfig, SearchFetcher, SearchResult, SearchSuggestion } from "./search/searchTypes";

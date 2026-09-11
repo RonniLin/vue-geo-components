@@ -165,6 +165,7 @@ function highlightParts(description: string): { text: string; match: boolean }[]
   text-align: left;
   background: none;
   border: none;
+  color: inherit;
   padding: 0.25rem 0;
   cursor: pointer;
 }

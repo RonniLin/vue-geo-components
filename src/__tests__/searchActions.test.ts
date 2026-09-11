@@ -54,9 +54,24 @@ describe("applySearchSuggestion", () => {
     const view = map.getView();
     expect(view.getCenter()![0]).toBeCloseTo(center[0], 0);
     expect(view.getCenter()![1]).toBeCloseTo(center[1], 0);
-    // The added layer is the selected-receptor layer (hexagon + crosshair).
     const layer = map.getLayers().item(map.getLayers().getLength() - 1) as VectorLayer;
-    expect(layer.getSource()!.getFeatures().length).toBeGreaterThan(0);
+    const types = layer
+      .getSource()!
+      .getFeatures()
+      .map((feature) => feature.getGeometry()!.getType());
+    expect(types.filter((type) => type === "Polygon")).toHaveLength(1);
+    expect(types.filter((type) => type === "LineString")).toHaveLength(4);
+  });
+
+  it("highlights a receptor without the crosshair lines when crosshair is false", () => {
+    const center = [149988.14433676028, 459973.44414740487] as const;
+
+    applySearchSuggestion(map, suggestion({ type: "RECEPTOR", centroid: wktPoint(center[0], center[1]) }), { crosshair: false });
+
+    const layer = map.getLayers().item(map.getLayers().getLength() - 1) as VectorLayer;
+    const features = layer.getSource()!.getFeatures();
+    expect(features).toHaveLength(1);
+    expect(features[0]!.getGeometry()!.getType()).toBe("Polygon");
   });
 
   it("zooms to the extent for a nature area and marks its centroid", () => {

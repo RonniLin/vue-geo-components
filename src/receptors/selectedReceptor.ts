@@ -88,18 +88,31 @@ export function createReceptorLabelStyle(label: string, hexagonCode: number, zoo
 }
 
 /**
+ * How {@link renderSelectedReceptor} draws the selected receptor. Products
+ * differ on whether they want the lines out to the map edges, so it is opt-out.
+ */
+export interface SelectedReceptorRenderOptions {
+  /** Draw the receptor; `false` only clears the layer. Defaults to `true`. */
+  render?: boolean;
+  /** Grid level the receptor id belongs to. */
+  zoomLevel?: number;
+  /** Also draw the lines out to the view edges. Defaults to `true`. */
+  crosshair?: boolean;
+}
+
+/**
  * Draw the selected receptor into its layer, replacing whatever was there.
  *
- * The crosshair lines are drawn out to the current view extent, so this needs
- * redrawing whenever the map moves. Passing no receptor - or `render: false` -
- * clears the layer.
+ * With `crosshair` (the default) the lines are drawn out to the current view
+ * extent, so this needs redrawing whenever the map moves. Passing no receptor -
+ * or `render: false` - clears the layer.
  */
 export function renderSelectedReceptor(
   selectedReceptorLayer: LayerProps | null,
   receptorId: string | number | undefined,
-  render: boolean = true,
-  zoomLevel?: number,
+  options: SelectedReceptorRenderOptions = {},
 ): void {
+  const { render = true, zoomLevel, crosshair = true } = options;
   const source = selectedReceptorLayer?.layerRef?.getSource() as VectorSource | undefined;
   const map = selectedReceptorLayer?.layerRef?.getMapInternal();
 
@@ -114,6 +127,11 @@ export function renderSelectedReceptor(
     return;
   }
 
+  if (!crosshair) {
+    source.addFeature(feature);
+    return;
+  }
+
   const hexagon = extentCorners(geometry.getExtent());
   const view = extentCorners(map.getView().calculateExtent());
   const center = getCenter(geometry.getExtent());
@@ -124,14 +142,14 @@ export function renderSelectedReceptor(
 
   source.addFeatures([
     // Lines from each side of the hexagon out to the matching edge of the view.
-    crosshair([hexagon.minX, centerY], [view.minX, centerY]),
-    crosshair([hexagon.maxX, centerY], [view.maxX, centerY]),
-    crosshair([centerX, hexagon.maxY], [centerX, view.maxY]),
-    crosshair([centerX, hexagon.minY], [centerX, view.minY]),
+    crosshairLine([hexagon.minX, centerY], [view.minX, centerY]),
+    crosshairLine([hexagon.maxX, centerY], [view.maxX, centerY]),
+    crosshairLine([centerX, hexagon.maxY], [centerX, view.maxY]),
+    crosshairLine([centerX, hexagon.minY], [centerX, view.minY]),
     feature,
   ]);
 }
 
-function crosshair(from: Coordinate, to: Coordinate): Feature {
+function crosshairLine(from: Coordinate, to: Coordinate): Feature {
   return new Feature(new LineString([from, to]));
 }
