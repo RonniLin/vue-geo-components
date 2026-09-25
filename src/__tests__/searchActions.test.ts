@@ -24,6 +24,15 @@ function wktPoint(x: number, y: number): string {
   return new WKT().writeGeometry(new Point([x, y]));
 }
 
+function searchResultStyles(layer: VectorLayer) {
+  const styles = layer.getStyleFunction()!({} as never, 1);
+  return Array.isArray(styles) ? styles : [styles];
+}
+
+function markerGeometryFunction(layer: VectorLayer) {
+  return searchResultStyles(layer)[1]!.getGeometryFunction();
+}
+
 describe("applySearchSuggestion", () => {
   let map: Map;
 
@@ -95,6 +104,61 @@ describe("applySearchSuggestion", () => {
     expect(map.getView().getZoom()).toBeLessThan(14);
   });
 
+  it.each([
+    ["CITY", "POLYGON((146000 456000,154000 456000,150000 464000,146000 456000))"],
+    ["ASSESSMENT_AREA", "MULTIPOLYGON(((146000 456000,154000 456000,150000 464000,146000 456000)))"],
+    ["STREET", "LINESTRING(146000 456000,150000 460000,154000 464000)"],
+  ])("testHighlightsGeometry: %s", (type, geometry) => {
+    const bbox = "POLYGON((140000 450000,160000 450000,160000 470000,140000 470000,140000 450000))";
+    applySearchSuggestion(map, suggestion({ type, geometry, bbox, centroid: wktPoint(150000, 460000) }));
+
+    const layer = map.getLayers().item(0) as VectorLayer;
+    const features = layer.getSource()!.getFeatures();
+    const outline = features.find((feature) => feature.getGeometry()!.getType() !== "Point");
+    expect(outline, "the actual location geometry must be highlighted, not its bounding box").toBeDefined();
+    expect(new WKT().writeGeometry(outline!.getGeometry()!), "the outline must match the search geometry").toBe(
+      new WKT().writeGeometry(new WKT().readGeometry(geometry)),
+    );
+    const styles = layer.getStyleFunction()!(outline!, 1);
+    const style = Array.isArray(styles) ? styles[0]! : styles;
+    expect(style?.getStroke()?.getWidth(), "area and road highlights must have a visible stroke").toBeGreaterThan(0);
+  });
+
+  it("testGeometryWithoutCentroid", () => {
+    applySearchSuggestion(map, suggestion({ type: "ADDRESS", geometry: wktPoint(150000, 460000) }));
+
+    const layer = map.getLayers().item(0) as VectorLayer;
+    const features = layer.getSource()!.getFeatures();
+    expect(features, "geometry-only results must remain visible").toHaveLength(1);
+    expect(searchResultStyles(layer)[1]!.getImage(), "a point-only result needs a marker, not just stroke and fill").toBeDefined();
+  });
+
+  it("testMarkerScopedToPoints", () => {
+    applySearchSuggestion(
+      map,
+      suggestion({ type: "CITY", geometry: "POLYGON((146000 456000,154000 456000,150000 464000,146000 456000))" }),
+    );
+
+    const layer = map.getLayers().item(0) as VectorLayer;
+    const geometryFn = markerGeometryFunction(layer);
+    expect(geometryFn, "the marker needs a geometry filter").toBeDefined();
+    expect(geometryFn!({ getGeometry: () => new Point([150000, 460000]) } as never), "the marker renders for points").toBeDefined();
+    expect(
+      geometryFn!({ getGeometry: () => new WKT().readGeometry("POLYGON((146000 456000,154000 456000,150000 464000,146000 456000))") } as never),
+      "the marker stays hidden for areas",
+    ).toBeUndefined();
+  });
+
+  it("testMalformedGeometryUsesCentroid", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    applySearchSuggestion(map, suggestion({ type: "CITY", geometry: "invalid", centroid: wktPoint(150000, 460000) }));
+
+    const layer = map.getLayers().item(0) as VectorLayer;
+    const features = layer.getSource()!.getFeatures();
+    expect(features, "an invalid outline must retain the centroid fallback").toHaveLength(1);
+    expect(features[0]!.getGeometry()!.getType(), "the fallback must be a point marker").toBe("Point");
+  });
+
   it("ignores a suggestion whose geometries cannot be read", () => {
     const mapSpy = vi.spyOn(map, "addLayer");
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -141,5 +205,33 @@ describe("applySearchSuggestion", () => {
     applySearchSuggestion(map, area);
 
     expect(map.getView().getCenter(), "the repeated extent should not be suppressed after another flight").toEqual([150000, 460000]);
+  });
+
+  it("keeps only the newest sonar when a result is selected within the removal time", () => {
+    vi.useFakeTimers();
+    try {
+      applySearchSuggestion(map, suggestion({ type: "CITY", centroid: wktPoint(150000, 460000) }));
+      vi.advanceTimersByTime(10_000);
+      applySearchSuggestion(map, suggestion({ type: "CITY", centroid: wktPoint(160000, 470000) }));
+
+      expect(map.getOverlays().getLength(), "the obsolete sonar must be gone").toBe(1);
+
+      vi.advanceTimersByTime(1_500);
+      expect(map.getOverlays().getLength(), "the newest sonar must not be removed by the previous timeout").toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clearPreviousSonarOnReceptor", () => {
+    vi.useFakeTimers();
+    try {
+      applySearchSuggestion(map, suggestion({ type: "CITY", centroid: wktPoint(150000, 460000) }));
+      applySearchSuggestion(map, suggestion({ type: "RECEPTOR", centroid: wktPoint(149988.14433676028, 459973.44414740487) }));
+
+      expect(map.getOverlays().getLength(), "selecting a receptor must clear the previous sonar").toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

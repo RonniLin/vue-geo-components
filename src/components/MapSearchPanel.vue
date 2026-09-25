@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import type { LegendTranslator } from "@/components/legendDisplay";
 import { createSearchService } from "@/search/searchService";
@@ -13,6 +13,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ select: [suggestion: SearchSuggestion] }>();
+
+const input = ref<HTMLInputElement | null>(null);
+
+function focus(): void {
+  input.value?.focus();
+}
+
+defineExpose({ focus });
 
 const search = useMapSearch(createSearchService(props.config), { timeoutMilliseconds: props.searchTimeoutMilliseconds });
 const { query, groupedResults, searching, hasQuery, noResults, error, clear } = search;
@@ -50,6 +58,7 @@ function highlightParts(description: string): { text: string; match: boolean }[]
   <div class="map-search-panel" data-id="map-search-panel">
     <div class="search-input-container">
       <input
+        ref="input"
         v-model="query"
         type="text"
         class="search-input"
@@ -114,7 +123,7 @@ function highlightParts(description: string): { text: string; match: boolean }[]
 .map-search-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--geo-spacing, 0.5rem);
+  gap: 0;
 }
 
 .search-input-container {
@@ -123,19 +132,34 @@ function highlightParts(description: string): { text: string; match: boolean }[]
 }
 
 .search-input-container .search-input {
+  box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  padding-right: 2.5rem;
 }
 
 .search-input-container .clear-button {
   position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 2rem;
+  height: 2rem;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--geo-accent, #333);
+  color: var(--geo-accent, #0052a3);
 }
 
 .search-loading,
@@ -149,8 +173,10 @@ function highlightParts(description: string): { text: string; match: boolean }[]
 }
 
 .result-group .group-title {
-  font-weight: bold;
-  margin-top: var(--geo-spacing, 0.5rem);
+  font-weight: normal;
+  color: var(--geo-text, #14375b);
+  background: var(--geo-search-heading-background, #f6f6f1);
+  padding: 0.25rem var(--geo-spacing, 0.5rem);
 }
 
 .result-list {
@@ -161,17 +187,22 @@ function highlightParts(description: string): { text: string; match: boolean }[]
 
 .result-group .result-item {
   display: block;
+  box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  margin: 0;
+  border-radius: 0;
+  font: inherit;
   text-align: left;
   background: none;
   border: none;
-  color: inherit;
-  padding: 0.25rem 0;
+  color: var(--geo-accent, #0052a3);
+  padding: 0.25rem var(--geo-spacing, 0.5rem);
   cursor: pointer;
 }
 
 .result-group .result-item:hover {
-  background: var(--geo-surface-raised, #f4f4f6);
+  background: var(--geo-search-result-hover-background, #dddbc6);
 }
 
 .visually-hidden {
