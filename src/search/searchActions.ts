@@ -212,11 +212,12 @@ export function applySearchSuggestion(map: Map, suggestion: SearchSuggestion, op
   removePreviousResultLayer(map);
   removeSonar(map);
 
+  pingSonar(map, centroid);
+
   if (suggestion.type === "RECEPTOR") {
     applyReceptor(map, centroid, options);
     return;
   }
-  pingSonar(map, centroid);
   applyExtentResult(map, { centroid, geometry, extentGeometry });
 }
 

@@ -229,7 +229,7 @@ describe("applySearchSuggestion", () => {
       applySearchSuggestion(map, suggestion({ type: "CITY", centroid: wktPoint(150000, 460000) }));
       applySearchSuggestion(map, suggestion({ type: "RECEPTOR", centroid: wktPoint(149988.14433676028, 459973.44414740487) }));
 
-      expect(map.getOverlays().getLength(), "selecting a receptor must clear the previous sonar").toBe(0);
+      expect(map.getOverlays().getLength(), "a receptor selection must show its own sonar").toBe(1);
     } finally {
       vi.useRealTimers();
     }
