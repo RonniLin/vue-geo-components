@@ -78,6 +78,12 @@ const SONAR_STYLESHEET = `
   animation: geo-search-sonar-pulse 1s ease-out ${SONAR_PULSES};
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .geo-search-sonar__pulse {
+    animation: none;
+  }
+}
+
 .geo-search-sonar__ring {
   position: absolute;
   top: 80px;
