@@ -134,10 +134,7 @@ describe("applySearchSuggestion", () => {
   });
 
   it("testMarkerScopedToPoints", () => {
-    applySearchSuggestion(
-      map,
-      suggestion({ type: "CITY", geometry: "POLYGON((146000 456000,154000 456000,150000 464000,146000 456000))" }),
-    );
+    applySearchSuggestion(map, suggestion({ type: "CITY", geometry: "POLYGON((146000 456000,154000 456000,150000 464000,146000 456000))" }));
 
     const layer = map.getLayers().item(0) as VectorLayer;
     const geometryFn = markerGeometryFunction(layer);
